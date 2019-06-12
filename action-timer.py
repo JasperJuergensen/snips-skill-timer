@@ -33,7 +33,7 @@ class TimerBase(Thread):
         
             self.wait_seconds = self.get_seconds_from_duration(duration)
         else:
-            text_now = u"Je n'ai pas compris la duré du minuteur, désolé."
+            text_now = u"Ich habe die angegebene Dauer nicht verstanden."
             hermes.publish_end_session(intentMessage.session_id, text_now)
             raise Exception('Timer need dutration')
             
@@ -68,32 +68,32 @@ class TimerBase(Thread):
         length = 0
         
         if seconds > 0:        
-            result = '{} seconds'.format(str(seconds))
+            result = '{} Sekunden'.format(str(seconds))
             length += 1
         if minutes > 0:
             if length > 0:
-                add_and = ' et '
+                add_and = ' und '
             else: 
                 add_and = ''
-            result = '{} minutes{}{}'.format(str(minutes), add_and, result)
+            result = '{} Minuten{}{}'.format(str(minutes), add_and, result)
             length += 1
         if hours > 0:
             if length > 1:
                 add_and = ', '
             elif length > 0:
-                add_and = ' et '
+                add_and = ' und '
             else: 
                 add_and = ''
-            result = '{} heures{}{}'.format(str(hours), add_and, result)
+            result = '{} Stunden{}{}'.format(str(hours), add_and, result)
             length += 1
         if days > 0:
             if length > 1:
                 add_and = ', '
             elif length > 0:
-                add_and = ' et '
+                add_and = ' und '
             else: 
                 add_and = ''
-            result = '{} jours{}{}'.format(str(days), add_and, result)
+            result = '{} Tage{}{}'.format(str(days), add_and, result)
         return result
 
     @property
@@ -114,19 +114,19 @@ class TimerBase(Thread):
         t = str(timedelta(seconds=seconds)).split(':')
         
         if int(t[2]) > 0:
-            add_and = ' et '
-            result += "{} secondes".format(int(t[2]))
+            add_and = ' und '
+            result += "{} Sekunden".format(int(t[2]))
         
         if int(t[1]) > 0:         
-            result = "{} minutes {}{}".format(int(t[1]), add_and, result)
+            result = "{} Minuten {}{}".format(int(t[1]), add_and, result)
             if add_and != '':
                 add_and = ', '
             else:
-                add_and = ' et '
+                add_and = ' und '
         
         if int(t[0]) > 0:
             
-            result = "{} heures{}{}".format(int(t[0]), add_and, result)
+            result = "{} Stunden{}{}".format(int(t[0]), add_and, result)
         return result
 
     def run(self):
@@ -152,7 +152,7 @@ class TimerSendNotification(TimerBase):
 
     def callback(self):
         if self.sentence is None:
-            text = u"Le minuteur de {} vient de ce terminer".format(str(self.durationRaw))
+            text = u"Der Timer mit {} ist abgelaufen.".format(str(self.durationRaw))
         else:
             text = u"Le minuteur de {} vient de ce terminer je doit vous rappeler de {}".format(
                 self.durationRaw, self.sentence)
@@ -162,7 +162,7 @@ class TimerSendNotification(TimerBase):
 
     def send_end(self):
         if self.sentence is None:
-            text_now = u"Je vous rappelerais dans {} que le minuteur c'est terminé".format(str(self.durationRaw))
+            text_now = u"Der Timer {} ist abgelaufen.".format(str(self.durationRaw))
         else:
             text_now = u"Je vous rappelerais dans {} de {}".format(str(self.durationRaw), str(self.sentence))
         
@@ -199,11 +199,11 @@ def timerAction(hermes, intentMessage):
 def timerRemainingTime(hermes, intentMessage):
     len_timer_list = len(TIMER_LIST)
     if len_timer_list < 1:
-        hermes.publish_end_session(intentMessage.session_id, "Il n'y a pas de minuteur en cours")
+        hermes.publish_end_session(intentMessage.session_id, "Es läuft aktuell kein Timer.")
     else:
         text = u''
         for i, timer in enumerate(TIMER_LIST):            
-            text += u"Pour le minuteur numéro {} il reste {}".format(i + 1, timer.remaining_time_str)
+            text += u"Für den Timer {} beträgt die Restzeit {}".format(i + 1, timer.remaining_time_str)
             if len_timer_list <= i:
                 text += u", "
         hermes.publish_end_session(intentMessage.session_id, text)
@@ -220,6 +220,4 @@ def timerRemove(hermes, intentMessage):
 if __name__ == "__main__":    
 
     with Hermes(MQTT_ADDR) as h:
-        h.subscribe_intent("Tealque:timerRemember", timerRemember)\
-            .subscribe_intent("Tealque:timerRemainingTime", timerRemainingTime)\
-            .loop_forever()
+        h.subscribe_intent("JasperJuergensen:StartTimer", timerRemember).subscribe_intent("JasperJuergensen:RemainingTime", timerRemainingTime).loop_forever()
