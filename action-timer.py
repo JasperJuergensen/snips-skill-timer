@@ -186,7 +186,7 @@ class TimerSendAction(TimerBase):
 def timerRemember(hermes, intentMessage):
     
     timer = TimerSendNotification(hermes, intentMessage)
-    timer.start()
+    timer.run()
         
         
 def timerAction(hermes, intentMessage):
