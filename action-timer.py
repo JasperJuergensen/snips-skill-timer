@@ -40,6 +40,8 @@ class TimerBase(Thread):
         self.sentence = None
 
         TIMER_LIST.append(self)
+        
+        self.hermes.publish_continue_session_notification(self.session_id, "Timer {} gestartet.".format(str(self.durationRaw)))
 
     @staticmethod
     def get_seconds_from_duration(duration):
@@ -126,7 +128,6 @@ class TimerBase(Thread):
 
     def run(self):
 
-        self.hermes.publish_start_session_notification(site_id=self.site_id, session_initiation_text="Timer {} gestartet.".format(str(self.durationRaw)), custom_data=None)
         print("[{}] Start timer: wait {} seconds".format(time.time(), self.wait_seconds))
         self._start_time = time.time()
         time.sleep(self.wait_seconds)
