@@ -41,7 +41,6 @@ class TimerBase(Thread):
 
         TIMER_LIST.append(self)
         
-        self.hermes.publish_continue_session_notification(self.session_id, "Timer {} gestartet.".format(str(self.durationRaw)))
 
     @staticmethod
     def get_seconds_from_duration(duration):
@@ -128,6 +127,7 @@ class TimerBase(Thread):
 
     def run(self):
 
+        self.hermes.publish_continue_session(self.session_id, "Timer mit {} gestartet.".format(str(self.durationRaw)))
         print("[{}] Start timer: wait {} seconds".format(time.time(), self.wait_seconds))
         self._start_time = time.time()
         time.sleep(self.wait_seconds)
@@ -146,7 +146,6 @@ class TimerSendNotification(TimerBase):
 
     def end(self):
         text = u"Der Timer mit {} ist abgelaufen.".format(str(self.durationRaw))
-        
         self.hermes.publish_end_session(self.session_id, text)
 
 
