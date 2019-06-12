@@ -152,7 +152,7 @@ class TimerSendNotification(TimerBase):
 
     def callback(self):
         if self.sentence is None:
-            text = u"Der Timer mit {} ist abgelaufen.".format(str(self.durationRaw))
+            text = u"Der Timer mit {} wurde gestartet.".format(str(self.durationRaw))
         else:
             text = u"Le minuteur de {} vient de ce terminer je doit vous rappeler de {}".format(
                 self.durationRaw, self.sentence)
