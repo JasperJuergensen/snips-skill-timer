@@ -126,7 +126,7 @@ class TimerBase(Thread):
 
     def run(self):
 
-        self.hermes.publish_continue_session(self.session_id, "Timer {} gestartet.".format(str(self.durationRaw)))
+        self.hermes.publish_start_session_notification(site_id=self.site_id, session_initiation_text="Timer {} gestartet.".format(str(self.durationRaw)), custom_data=None)
         print("[{}] Start timer: wait {} seconds".format(time.time(), self.wait_seconds))
         self._start_time = time.time()
         time.sleep(self.wait_seconds)
@@ -135,7 +135,7 @@ class TimerBase(Thread):
     def __end(self):
         print("[{}] End timer: wait {} seconds".format(time.time(), self.wait_seconds))
         TIMER_LIST.remove(self)
-        self.callback()
+        self.end()
 
     def end(self):
         raise NotImplementedError('You should implement your callback')
