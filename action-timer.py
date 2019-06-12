@@ -37,10 +37,14 @@ class TimerBase(Thread):
             hermes.publish_end_session(intentMessage.session_id, text_now)
             raise Exception('Timer need dutration')
             
-        self.sentence = None
+        if intentMessage.slots.sentence:
+            self.sentence = intentMessage.slots.sentence.first().rawValue
+        else:
+            self.sentence = None
 
         TIMER_LIST.append(self)
-        
+
+        self.send_end()
 
     @staticmethod
     def get_seconds_from_duration(duration):
@@ -127,31 +131,68 @@ class TimerBase(Thread):
 
     def run(self):
 
-        self.hermes.publish_continue_session(self.session_id, "Timer mit {} gestartet.".format(str(self.durationRaw)))
         print("[{}] Start timer: wait {} seconds".format(time.time(), self.wait_seconds))
         self._start_time = time.time()
         time.sleep(self.wait_seconds)
-        self.__end()
+        self.__callback()
 
-    def __end(self):
+    def __callback(self):
         print("[{}] End timer: wait {} seconds".format(time.time(), self.wait_seconds))
         TIMER_LIST.remove(self)
-        self.end()
+        self.callback()
 
-    def end(self):
+    def callback(self):
         raise NotImplementedError('You should implement your callback')
+
+    def send_end(self):
+        raise NotImplementedError('You should implement your send end')
 
                 
 class TimerSendNotification(TimerBase):
 
-    def end(self):
-        text = u"Der Timer mit {} ist abgelaufen.".format(str(self.durationRaw))
-        self.hermes.publish_end_session(self.session_id, text)
+    def callback(self):
+        if self.sentence is None:
+            text = u"Der Timer mit {} ist abgelaufen.".format(str(self.durationRaw))
+        else:
+            text = u"Le minuteur de {} vient de ce terminer je doit vous rappeler de {}".format(
+                self.durationRaw, self.sentence)
+        
+        self.hermes.publish_start_session_notification(site_id=self.site_id, session_initiation_text=text,
+                                                       custom_data=None)
+
+    def send_end(self):
+        if self.sentence is None:
+            text_now = u"Der Timer {} ist abgelaufen.".format(str(self.durationRaw))
+        else:
+            text_now = u"Je vous rappelerais dans {} de {}".format(str(self.durationRaw), str(self.sentence))
+        
+        self.hermes.publish_end_session(self.session_id, text_now)
+
+
+class TimerSendAction(TimerBase):
+
+    def callback(self):        
+        self.hermes.publish_start_session_action(site_id=self.site_id, session_init_text=self.sentence,
+                                                 session_init_intent_filter=[],
+                                                 session_init_can_be_enqueued=False, custom_data=None)
+
+    def send_end(self):
+        if self.sentence is None:
+            raise Exception('TimerSendAction need sentence with action')
+        text_now = u"Dans {} je ferais l'action: {}".format(str(self.durationRaw), str(self.sentence))
+        self.hermes.publish_end_session(self.session_id, text_now)
 
 
 def timerRemember(hermes, intentMessage):
     
     timer = TimerSendNotification(hermes, intentMessage)
+    timer.start()
+        
+        
+def timerAction(hermes, intentMessage):
+
+    # Example in 15 minutes start the TV
+    timer = TimerSendAction(hermes, intentMessage)
     timer.start()
 
 
