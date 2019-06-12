@@ -131,6 +131,7 @@ class TimerBase(Thread):
 
     def run(self):
 
+        self.hermes.publish_continue_session(self.session_id, "Timer {} gestartet.".format(str(self.durationRaw)))
         print("[{}] Start timer: wait {} seconds".format(time.time(), self.wait_seconds))
         self._start_time = time.time()
         time.sleep(self.wait_seconds)
