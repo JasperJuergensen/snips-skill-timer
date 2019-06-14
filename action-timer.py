@@ -2,6 +2,8 @@
 # coding: utf-8
 
 from hermes_python.hermes import Hermes
+from hermes_python.ffi.utils import MqttOptions
+
 from datetime import timedelta
 import time
 from threading import Thread
