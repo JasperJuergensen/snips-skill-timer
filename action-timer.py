@@ -244,7 +244,11 @@ def timerRemove(hermes, intentMessage):
         hermes.publish_end_session(intentMessage.session_id, 'Es laufen aktuell keine Teimer.')
         return
     if intentMessage.slots.timer_id:
-        timer_id = intentMessage.slots.timer_id.first().value - 1
+        try:
+            timer_id = int(intentMessage.slots.timer_id.first().value) - 1
+        except ValueError:
+            hermes.publish_end_session(intentMessage.session_id, 'Die Timer ID konnte nicht verstanden werden.')
+            return
         if timer_id > len(TIMER_LIST) - 1:
             hermes.publish_end_session(intentMessage.session_id, 'Der angegebene Teimer existiert nicht.')
             return
