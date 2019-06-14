@@ -6,7 +6,7 @@ from hermes_python.ffi.utils import MqttOptions
 
 from datetime import timedelta
 import time
-from threading import Thread
+from threading import Thread, Event
 
 import toml
 
@@ -56,7 +56,8 @@ class TimerBase(Thread):
             self.sentence = None
 
         TIMER_LIST.append(self)
-        self.event = threading.Event()
+        self.event = Event()
+        self.event.clear()
 
         self.send_text_started()
 
