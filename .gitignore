@@ -23,7 +23,7 @@ __pycache__
 .cache/
 
 # Sublime
-.sublime-project
+*.sublime-project
 
 # Installer logs
 pip-log.txt

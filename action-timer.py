@@ -6,10 +6,21 @@ from datetime import timedelta
 import time
 from threading import Thread
 
+import toml
 
-MQTT_IP_ADDR = "localhost"
-MQTT_PORT = 1883
-MQTT_ADDR = "{}:{}".format(MQTT_IP_ADDR, str(MQTT_PORT))
+
+MQTT_BROKER_ADDRESS = "localhost:1883"
+MQTT_USERNAME = None
+MQTT_PASSWORD = None
+
+# get snips config
+snips_config = toml.load('/etc/snips.toml')
+if 'mqtt' in snips_config['snips-common'].keys():
+    MQTT_BROKER_ADDRESS = snips_config['snips-common']['mqtt']
+if 'mqtt_username' in snips_config['snips-common'].keys():
+    MQTT_USERNAME = snips_config['snips-common']['mqtt_username']
+if 'mqtt_password' in snips_config['snips-common'].keys():
+    MQTT_PASSWORD = snips_config['snips-common']['mqtt_password']
 
 TIMER_LIST = []
 
@@ -43,8 +54,9 @@ class TimerBase(Thread):
             self.sentence = None
 
         TIMER_LIST.append(self)
+        self.event = threading.Event()
 
-        self.send_end()
+        self.send_text_started()
 
     @staticmethod
     def get_seconds_from_duration(duration):
@@ -132,9 +144,10 @@ class TimerBase(Thread):
     def run(self):
 
         print("[{}] Start timer: wait {} seconds".format(time.time(), self.wait_seconds))
+        self.event.clear()
         self._start_time = time.time()
-        time.sleep(self.wait_seconds)
-        self.__callback()
+        if not self.event.wait(self.wait_seconds):  # If true, the timer has been killed
+            self.__callback()
 
     def __callback(self):
         print("[{}] End timer: wait {} seconds".format(time.time(), self.wait_seconds))
@@ -144,29 +157,30 @@ class TimerBase(Thread):
     def callback(self):
         raise NotImplementedError('You should implement your callback')
 
-    def send_end(self):
-        raise NotImplementedError('You should implement your send end')
+    def send_text_started(self):
+        text_now = u"Der Teimer {} wurde gestartet.".format(str(self.durationRaw))
+        self.hermes.publish_end_session(self.session_id, text_now)
+
+
+class SimpleTimer(TimerBase):
+
+    def callback(self):
+        text = u"Der Teimer mit {} ist abgelaufen.".format(str(self.durationRaw))
+        self.hermes.publish_start_session_notification(site_id=self.site_id, session_initiation_text=text,
+                                                       custom_data=None)
 
                 
 class TimerSendNotification(TimerBase):
 
     def callback(self):
         if self.sentence is None:
-            text = u"Der Timer mit {} ist abgelaufen.".format(str(self.durationRaw))
+            text = u"Der Teimer mit {} ist abgelaufen.".format(str(self.durationRaw))
         else:
             text = u"Le minuteur de {} vient de ce terminer je doit vous rappeler de {}".format(
                 self.durationRaw, self.sentence)
         
         self.hermes.publish_start_session_notification(site_id=self.site_id, session_initiation_text=text,
                                                        custom_data=None)
-
-    def send_end(self):
-        if self.sentence is None:
-            text_now = u"Der Timer {} wurde gestartet.".format(str(self.durationRaw))
-        else:
-            text_now = u"Je vous rappelerais dans {} de {}".format(str(self.durationRaw), str(self.sentence))
-        
-        self.hermes.publish_end_session(self.session_id, text_now)
 
 
 class TimerSendAction(TimerBase):
@@ -176,11 +190,11 @@ class TimerSendAction(TimerBase):
                                                  session_init_intent_filter=[],
                                                  session_init_can_be_enqueued=False, custom_data=None)
 
-    def send_end(self):
-        if self.sentence is None:
-            raise Exception('TimerSendAction need sentence with action')
-        text_now = u"Dans {} je ferais l'action: {}".format(str(self.durationRaw), str(self.sentence))
-        self.hermes.publish_end_session(self.session_id, text_now)
+
+def simpleTimer(hermes, intentMessage):
+
+    timer = SimpleTimer(hermes, intentMessage)
+    timer.start()
 
 
 def timerRemember(hermes, intentMessage):
@@ -199,25 +213,55 @@ def timerAction(hermes, intentMessage):
 def timerRemainingTime(hermes, intentMessage):
     len_timer_list = len(TIMER_LIST)
     if len_timer_list < 1:
-        hermes.publish_end_session(intentMessage.session_id, "Es läuft aktuell kein Timer.")
+        hermes.publish_end_session(intentMessage.session_id, "Es läuft aktuell kein Teimer.")
     else:
         text = u''
         for i, timer in enumerate(TIMER_LIST):            
-            text += u"Für den Timer {} beträgt die Restzeit {}".format(i + 1, timer.remaining_time_str)
+            text += u"Für den Teimer {} beträgt die Restzeit {}".format(i + 1, timer.remaining_time_str)
             if len_timer_list <= i:
                 text += u", "
         hermes.publish_end_session(intentMessage.session_id, text)
 
 
 def timerList(hermes, intentMessage):
-    pass
+    len_timer_list = len(TIMER_LIST)
+    if len_timer_list < 1:
+        hermes.publish_end_session(intentMessage.session_id, "Es läuft aktuell kein Teimer.")
+    else:
+        text = u'Es laufen aktuell die folgenden Teimer:'
+        for i, timer in enumerate(TIMER_LIST): 
+            text += u'Teimer {} mit {}'.format(i + 1, str(timer.durationRaw))
+            if len_timer_list <= i:
+                text += u', '
+        hermes.publish_end_session(intentMessage.session_id, text)
 
 
 def timerRemove(hermes, intentMessage):
-    pass
+    if len(TIMER_LIST) < 1:
+        hermes.publish_end_session(intentMessage.session_id, 'Es laufen aktuell keine Teimer.')
+        return
+    if intentMessage.slots.timer_id:
+        timer_id = intentMessage.slots.timer_id.first().value - 1
+        if timer_id > len(TIMER_LIST) - 1:
+            hermes.publish_end_session(intentMessage.session_id, 'Der angegebene Teimer existiert nicht.')
+            return
+        removed_timer = TIMER_LIST.pop(timer_id)
+        removed_timer.event.set()
+        text = 'Der Teimer {} wurde gestoppt.'.format(timer_id)
+    elif len(TIMER_LIST) == 1:
+        removed_timer = TIMER_LIST.pop(0)
+        removed_timer.event.set()
+        text = 'Der Teimer wurde gestoppt.'
+    else:
+        #hermes.publish_continue_session(intentMessage.session_id, 'Welchen Teimer möchtests du beenden?')
+        #return
+        text = 'Ich weiß leider nicht, welchen Teimer ich beenden soll.'
+    hermes.publish_end_session(intentMessage.session_id, text)
 
 
-if __name__ == "__main__":    
+if __name__ == "__main__":  
 
-    with Hermes(MQTT_ADDR) as h:
-        h.subscribe_intent("JasperJuergensen:StartTimer", timerRemember).subscribe_intent("JasperJuergensen:RemainingTime", timerRemainingTime).loop_forever()
+    mqtt_opts = MqttOptions(username=MQTT_USERNAME, password=MQTT_PASSWORD, broker_address=MQTT_BROKER_ADDRESS)  
+
+    with Hermes(mqtt_options=mqtt_opts) as h:
+        h.subscribe_intent("JasperJuergensen:StartTimer", simpleTimer).subscribe_intent("JasperJuergensen:StopTimer", timerRemove).subscribe_intent().loop_forever()
