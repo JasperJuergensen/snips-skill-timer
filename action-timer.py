@@ -226,7 +226,7 @@ def timerRemainingTime(hermes, intentMessage):
     if timer_id > len(TIMER_LIST) - 1:
         hermes.publish_end_session(intentMessage.session_id, 'Der angegebene Teimer existiert nicht.')
         return
-    timer = TIMER_LIST.get(timer_id)
+    timer = TIMER_LIST[timer_id]
     text = 'Für den Teimer {} beträgt die Restzeit {}'.fromat(timer_id + 1, timer.remaining_time_str)
     hermes.publish_end_session(intentMessage.session_id, text)
 
@@ -269,7 +269,7 @@ def timerRemove(hermes, intentMessage):
             return
         removed_timer = TIMER_LIST.pop(timer_id)
         removed_timer.event.set()
-        text = 'Der Teimer {} wurde gestoppt.'.format(timer_id)
+        text = 'Der Teimer {} wurde gestoppt.'.format(timer_id + 1)
     elif len(TIMER_LIST) == 1:
         removed_timer = TIMER_LIST.pop(0)
         removed_timer.event.set()
