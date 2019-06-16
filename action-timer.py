@@ -217,13 +217,18 @@ def timerRemainingTime(hermes, intentMessage):
     len_timer_list = len(TIMER_LIST)
     if len_timer_list < 1:
         hermes.publish_end_session(intentMessage.session_id, "Es läuft aktuell kein Teimer.")
-    else:
-        text = u''
-        for i, timer in enumerate(TIMER_LIST):            
-            text += u"Für den Teimer {} beträgt die Restzeit {}".format(i + 1, timer.remaining_time_str)
-            if len_timer_list <= i:
-                text += u", "
-        hermes.publish_end_session(intentMessage.session_id, text)
+        return
+    try:
+        timer_id = int(intentMessage.slots.timer_id.first().value) - 1
+    except ValueError:
+        hermes.publish_end_session(intentMessage.session_id, 'Die Timer ID konnte nicht verstanden werden.')
+        return
+    if timer_id > len(TIMER_LIST) - 1:
+        hermes.publish_end_session(intentMessage.session_id, 'Der angegebene Teimer existiert nicht.')
+        return
+    timer = TIMER_LIST.get(timer_id)
+    text = 'Für den Teimer {} beträgt die Restzeit {}'.fromat(timer_id + 1, timer.remaining_time_str)
+    hermes.publish_end_session(intentMessage.session_id, text)
 
 
 def timerList(hermes, intentMessage):
@@ -237,6 +242,16 @@ def timerList(hermes, intentMessage):
             if len_timer_list <= i:
                 text += u', '
         hermes.publish_end_session(intentMessage.session_id, text)
+
+def getTimerInfo(hermes, intentMessage):
+    len_timer_list = len(TIMER_LIST)
+    if len_timer_list < 1:
+        hermes.publish_end_session(intentMessage.session_id, "Es läuft aktuell kein Teimer.")
+        return
+    if intentMessage.slots.timer_id:
+        timerRemainingTime(hermes, intentMessage)
+    else:
+        timerList(hermes, intentMessage)
 
 
 def timerRemove(hermes, intentMessage):
@@ -271,4 +286,6 @@ if __name__ == "__main__":
     mqtt_opts = MqttOptions(username=MQTT_USERNAME, password=MQTT_PASSWORD, broker_address=MQTT_BROKER_ADDRESS)  
 
     with Hermes(mqtt_options=mqtt_opts) as h:
-        h.subscribe_intent("JasperJuergensen:StartTimer", simpleTimer).subscribe_intent("JasperJuergensen:StopTimer", timerRemove).loop_forever()
+        h.subscribe_intent("JasperJuergensen:StartTimer", simpleTimer)\
+        .subscribe_intent("JasperJuergensen:StopTimer", timerRemove)\
+        .subscribe_intent('JasperJuergensen:TimerInfo', getTimerInfo).loop_forever()
